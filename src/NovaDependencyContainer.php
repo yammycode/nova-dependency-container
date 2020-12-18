@@ -2,14 +2,21 @@
 
 namespace Epartment\NovaDependencyContainer;
 
-use Illuminate\Database\Eloquent\Model;
+use Epartment\NovaDependencyContainer\Contracts\NPCS\ReinitAfterCloned;
+use Epartment\NovaDependencyContainer\Concerns\NPCS\HandlesReinitAfterCloned;
 use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Illuminate\Support\Str;
 use Laravel\Nova\Resource;
 
 class NovaDependencyContainer extends Field
+
+    implements ReinitAfterCloned
+
 {
+
+    use HandlesReinitAfterCloned;
+
     /**
      * The field's component.
      *
@@ -29,12 +36,22 @@ class NovaDependencyContainer extends Field
      * @param null $attribute
      * @param null $resolveCallback
      */
-    public function __construct($fields, $attribute = null, $resolveCallback = null)
+    public function __construct($name, $fields = [], $attribute = null, $resolveCallback = null)
     {
-        parent::__construct('', $attribute, $resolveCallback);
+        if(is_array($name)) {
+            $fields = $name;
+            $name = uniqid();
+        }
 
-        $this->withMeta(['fields' => $fields]);
-        $this->withMeta(['dependencies' => []]);
+        parent::__construct($name, $attribute, $resolveCallback);
+
+        $this->withMeta([
+            'fields' => $fields,
+            'dependencies' => [],
+            'settings' => [
+                'attributeProperty' => 'attribute'
+            ]
+        ]);
     }
 
     /**
@@ -146,6 +163,10 @@ class NovaDependencyContainer extends Field
      */
     public function resolveForDisplay($resource, $attribute = null)
     {
+        if(is_array($resource)) {
+            $resource = (object) $resource;
+        }
+
         foreach ($this->meta['fields'] as $field) {
             $field->resolveForDisplay($resource);
         }
@@ -153,6 +174,10 @@ class NovaDependencyContainer extends Field
         foreach ($this->meta['dependencies'] as $index => $dependency) {
 
             $this->meta['dependencies'][$index]['satisfied'] = false;
+
+            if(!is_object($resource)) {
+                continue;
+            }
 
             if (array_key_exists('empty', $dependency) && empty($resource->{$dependency['property']})) {
                 $this->meta['dependencies'][$index]['satisfied'] = true;
@@ -179,6 +204,7 @@ class NovaDependencyContainer extends Field
                     $this->meta['dependencies'][$index]['satisfied'] = true;
                     continue;
                 }
+
                 if ($resource instanceof Resource) {
                     // @todo: quickfix for MorphTo
                     $morphable_attribute = $resource->getAttribute($dependency['property'] . '_type');
@@ -332,4 +358,12 @@ class NovaDependencyContainer extends Field
             $fieldsRules
         );
     }
+
+    public function settings(array $settings)
+    {
+        return $this->withMeta([
+            'settings' => array_merge($this->meta['settings'], $settings)
+        ]);
+    }
+
 }
