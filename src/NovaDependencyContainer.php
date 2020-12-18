@@ -179,8 +179,6 @@ class NovaDependencyContainer extends Field
                     $this->meta['dependencies'][$index]['satisfied'] = true;
                     continue;
                 }
-                // @todo: quickfix for MorphTo
-                $morphable_attribute = $resource->getAttribute($dependency['property'].'_type');
                 if ($resource instanceof Resource) {
                     // @todo: quickfix for MorphTo
                     $morphable_attribute = $resource->getAttribute($dependency['property'] . '_type');
